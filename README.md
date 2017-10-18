@@ -11,5 +11,10 @@ $ npm install
 $ npm start
 ```
 
+### Build production
+```
+$ npm run build
+```
+
 ## Credit
 Made by Tomáš Knápek.

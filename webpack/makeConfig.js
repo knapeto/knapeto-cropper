@@ -1,6 +1,8 @@
 // Modules
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 var ExtractTextPlugin = require('extract-text-webpack-plugin');
+var CopyWebpackPlugin = require('copy-webpack-plugin');
+var CompressionPlugin = require('compression-webpack-plugin');
 var autoprefixer = require('autoprefixer');
 var path = require('path');
 var fs = require('fs');
@@ -22,18 +24,39 @@ var loaders = {
  */
 module.exports = function (isDevelopment = false) {
 
-    const localDevelopment = true;
+    const localDevelopment = isDevelopment || false;
 
-    const entry = [
+    const entry = localDevelopment ? [
         'babel-polyfill',
         'react-hot-loader/patch',
         `webpack-dev-server/client?http://localhost:4242`,
         'webpack/hot/only-dev-server',
         path.join(ABSOLUTE_BASE, 'styles/main.less'),
         path.join(ABSOLUTE_BASE, 'scripts/bootstrap.js')
+    ] : [
+        path.join(ABSOLUTE_BASE, 'styles/main.less'),
+        path.join(ABSOLUTE_BASE, 'scripts/bootstrap.js')
     ];
 
     function stylesLoaders() {
+        if (!localDevelopment) {
+            return [
+                {
+                    test: /\.css$/,
+                    use: ['css-hot-loader'].concat(ExtractTextPlugin.extract({
+                        fallback: 'style-loader',
+                        use: ['css-loader']
+                    }))
+                },
+                {
+                    test: /\.less$/,
+                    use: ExtractTextPlugin.extract({
+                        fallback: 'style-loader',
+                        use: ['css-loader', 'less-loader']
+                    })
+                }
+            ];
+        }
         return Object.keys(loaders).map(ext => {
             var prefix = 'css-loader!postcss-loader!';
             var extLoaders = prefix + loaders[ext];
@@ -75,42 +98,68 @@ module.exports = function (isDevelopment = false) {
                 }
             ].concat(stylesLoaders())
         },
-        plugins: [
-            new webpack.LoaderOptionsPlugin({
-                options: {
-                    postcss: [
-                        autoprefixer({
-                            browserslist: [
-                                'iOS 7',
-                                'last 2 version'
-                            ]
-                        })
-                    ]
-                }
-            }),
-            new webpack.HotModuleReplacementPlugin(),
-            new ExtractTextPlugin({
-                filename: "assets/styles/main.css?v=[hash]",
-                allChunks: true
-            }),
-            new webpack.optimize.CommonsChunkPlugin({
-                name: 'vendors',
-                minChunks: function (module) {
-                    return module.context && module.context.indexOf('node_modules') !== -1;
-                }
-            }),
-            new HtmlWebpackPlugin({
-                template: `index.html`,
-                filename: 'index.html',
-                inject: 'body',
-                minify: {
-                    removeComments: true,
-                    collapseWhitespace: true,
-                    preserveLineBreaks: true,
-                    conservativeCollapse: true
-                }
-            })
-        ],
+        plugins: (() => {
+            var plugins = isDevelopment ? [
+                new webpack.HotModuleReplacementPlugin()
+            ] : [
+                new webpack.LoaderOptionsPlugin({
+                    minimize: true,
+                    debug: false
+                }),
+                // Awesome compress (minify) plugin
+                new CompressionPlugin({
+                    asset: "[path]",
+                    algorithm: "gzip",
+                    regExp: /\.js$/
+                }),
+
+                // Source map for faster re-building
+                new webpack.SourceMapDevToolPlugin({
+                    filename: 'source.js.map'
+                }),
+                new webpack.optimize.UglifyJsPlugin()
+            ];
+
+            plugins.push(
+                new CopyWebpackPlugin([
+                    { from: 'assets', to: 'assets'}
+                ]),
+                new ExtractTextPlugin({
+                    filename: "assets/styles/main.css?v=[hash]",
+                    allChunks: true
+                }),
+                new webpack.LoaderOptionsPlugin({
+                    options: {
+                        postcss: [
+                            autoprefixer({
+                                browserslist: [
+                                    'iOS 7',
+                                    'last 2 version'
+                                ]
+                            })
+                        ]
+                    }
+                }),
+                new webpack.optimize.CommonsChunkPlugin({
+                    name: 'vendors',
+                    minChunks: function (module) {
+                        return module.context && module.context.indexOf('node_modules') !== -1;
+                    }
+                }),
+                new HtmlWebpackPlugin({
+                    template: `index.html`,
+                    filename: 'index.html',
+                    inject: 'body',
+                    minify: {
+                        removeComments: true,
+                        collapseWhitespace: true,
+                        preserveLineBreaks: true,
+                        conservativeCollapse: true
+                    }
+                })
+            );
+            return plugins;
+        })(),
 
         resolve: {
             extensions: ['.js'],

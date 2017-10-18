@@ -1,6 +1,6 @@
 import React from 'react';
 import {render} from 'react-dom';
-import Cropper from './cropper';
+import Page from './page';
 
 const dest = document.getElementById('content');
 
@@ -11,14 +11,14 @@ const renderApp = RootComponent => {
 	);
 };
 
-renderApp(Cropper);
+renderApp(Page);
 
 if (module.hot) {
 	module.hot.accept(
-		'./cropper',
+		'./page',
 		() => {
-			const ReloadedCropper = require('./cropper');
-			renderApp(ReloadedCropper);
+			const ReloadedPage = require('./page');
+			renderApp(ReloadedPage);
 		}
 	);
 }
